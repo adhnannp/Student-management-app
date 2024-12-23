@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.95);
+            opacity: 0;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .input-field {
+            @apply block w-full px-4 py-3 rounded-lg;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid rgba(107, 114, 128, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            @apply ring-2 ring-blue-500 border-blue-500;
+            background: rgba(17, 24, 39, 0.95);
+        }
+
+        .button {
+            @apply px-6 py-3 rounded-lg font-medium transition-all duration-300;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120%;
+            height: 120%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translate(-50%, -50%) scale(0);
+            border-radius: 50%;
+            transition: transform 0.5s;
+        }
+
+        .button:hover::after {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .primary-button {
+            @apply button;
+            background: linear-gradient(45deg, #3490dc, #60a5fa);
+        }
+
+        .cancel-button {
+            @apply button;
+            background: rgba(107, 114, 128, 0.2);
+        }
+
+        .delete-button {
+            @apply button;
+            background: linear-gradient(45deg, #dc2626, #ef4444);
+        }
+
+        .edit-button {
+            @apply button;
+            background: linear-gradient(45deg, #f59e0b, #fbbf24);
+        }
+
+        .table-container {
+            @apply rounded-xl overflow-hidden;
+            background: rgba(17, 24, 39, 0.6);
+        }
+
+        .table-row {
+            @apply transition-all duration-300;
+            border-bottom: 1px solid rgba(107, 114, 128, 0.1);
+        }
+
+        .table-row:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        /* Loading animation */
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading .loading-spinner {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto p-6">
+        <div class="flex justify-between items-center mb-6 glass-effect rounded-xl p-6">
+            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
+                Student Management
+            </h1>
+            <button onclick="openAddModal()" class="primary-button flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Add Student
+            </button>
+        </div>
+
+        <div class="table-container">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-800">
+                            <th class="px-6 py-4 text-left text-sm font-medium text-blue-400">Name</th>
+                            <th class="px-6 py-4 text-left text-sm font-medium text-blue-400">Email</th>
+                            <th class="px-6 py-4 text-left text-sm font-medium text-blue-400">Age</th>
+                            <th class="px-6 py-4 text-left text-sm font-medium text-blue-400">Grade</th>
+                            <th class="px-6 py-4 text-left text-sm font-medium text-blue-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (students && students.length > 0) { %>
+                            <% students.forEach(function(student) { %>
+                                <tr class="table-row">
+                                    <td class="px-6 py-4 text-sm"><%= student.name %></td>
+                                    <td class="px-6 py-4 text-sm"><%= student.email %></td>
+                                    <td class="px-6 py-4 text-sm"><%= student.age %></td>
+                                    <td class="px-6 py-4 text-sm"><%= student.grade %></td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex gap-3">
+                                            <button onclick="openEditModal('<%= student._id %>', '<%= student.name %>', <%= student.age %>, '<%= student.grade %>')" class="edit-button text-sm">Edit</button>
+                                            <button onclick="deleteStudent('<%= student._id %>')" class="delete-button text-sm">Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-gray-400">No students found</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div id="addModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
+                Add New Student
+            </h2>
+            <form id="addStudentForm" onsubmit="return addStudent(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label for="addName" class="block text-sm font-medium text-gray-300 mb-1">Name</label>
+                        <input type="text" id="addName" name="name" class="input-field" required>
+                    </div>
+                    <div>
+                        <label for="addEmail" class="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                        <input type="email" id="addEmail" name="email" class="input-field" required>
+                        <p id="emailError" class="text-red-500 text-sm mt-1 hidden">Email is already taken</p>
+                    </div>
+                    <div>
+                        <label for="addAge" class="block text-sm font-medium text-gray-300 mb-1">Age</label>
+                        <input type="number" id="addAge" name="age" class="input-field" required>
+                    </div>
+                    <div>
+                        <label for="addGrade" class="block text-sm font-medium text-gray-300 mb-1">Grade</label>
+                        <input type="text" id="addGrade" name="grade" class="input-field" required>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-6 gap-3">
+                    <button type="button" onclick="closeAddModal()" class="cancel-button">Cancel</button>
+                    <button type="submit" class="primary-button flex items-center gap-2">
+                        <span class="loading-spinner"></span>
+                        <span>Add Student</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
+                Edit Student
+            </h2>
+            <form id="editStudentForm" onsubmit="return editStudent(event)">
+                <input type="hidden" id="editId" name="id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="editName" class="block text-sm font-medium text-gray-300 mb-1">Name</label>
+                        <input type="text" id="editName" name="name" class="input-field" required>
+                    </div>
+                    <div>
+                        <label for="editAge" class="block text-sm font-medium text-gray-300 mb-1">Age</label>
+                        <input type="number" id="editAge" name="age" class="input-field" required>
+                    </div>
+                    <div>
+                        <label for="editGrade" class="block text-sm font-medium text-gray-300 mb-1">Grade</label>
+                        <input type="text" id="editGrade" name="grade" class="input-field" required>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-6 gap-3">
+                    <button type="button" onclick="closeEditModal()" class="cancel-button">Cancel</button>
+                    <button type="submit" class="primary-button flex items-center gap-2">
+                        <span class="loading-spinner"></span>
+                        <span>Save Changes</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openAddModal() {
+            const modal = document.getElementById('addModal');
+            modal.classList.add('active');
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('addModal');
+            modal.classList.remove('active');
+            document.getElementById('addStudentForm').reset();
+            document.getElementById('emailError').classList.add('hidden');
+        }
+
+        function openEditModal(id, name, age, grade) {
+            const modal = document.getElementById('editModal');
+            document.getElementById('editId').value = id;
+            document.getElementById('editName').value = name;
+            document.getElementById('editAge').value = age;
+            document.getElementById('editGrade').value = grade;
+            modal.classList.add('active');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('editModal');
+            modal.classList.remove('active');
+            document.getElementById('editStudentForm').reset();
+        }
+
+        async function addStudent(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.classList.add('loading');
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            if (!data.name || !data.email || !data.age || !data.grade) {
+                alert("All fields are required!");
+                submitButton.classList.remove('loading');
+                return false;
+            }
+
+            try {
+                const response = await fetch('/students/check-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: data.email })
+                });
+
+                const result = await response.json();
+
+                if (result.exists) {
+                    document.getElementById('emailError').classList.remove('hidden');
+                    submitButton.classList.remove('loading');
+                    return false;
+                }
+
+                const addResponse = await fetch('/students', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (addResponse.ok) {
+                    location.reload();
+                } else {
+                    throw new Error('Failed to add student');
+                }
+            } catch (error) {
+                alert(error.message);
+                submitButton.classList.remove('loading');
+            }
+        }
+
+        async function editStudent(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.classList.add('loading');
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            if (!data.name || !data.age || !data.grade) {
+                alert("All fields are required!");
+                submitButton.classList.remove('loading');
+                return false;
+            }
+
+            try {
+                const response = await fetch(`/students/${data.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    throw new Error('Failed to edit student');
+                }
+            } catch (error) {
+                alert(error.message);
+                submitButton.classList.remove('loading');
+            }
+        }
+
+        async function deleteStudent(id) {
+            if (confirm('Are you sure you want to delete this student?')) {
+                try {
+                    const response = await fetch(`/students/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        throw new Error('Failed to delete student');
+                    }
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function(event) {
+            const addModal = document.getElementById('addModal');
+            const editModal = document.getElementById('editModal');
+            
+            if (event.target === addModal) {
+                closeAddModal();
+            }
+            if (event.target === editModal) {
+                closeEditModal();
+            }
+        });
+
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAddModal();
+                closeEditModal();
+            }
+        });
+
+        // Prevent modal content clicks from closing the modal
+        document.querySelectorAll('.modal-content').forEach(modal => {
+            modal.addEventListener('click', function(event) {
+                event.stopPropagation();
+            });
+        });
+    </script>
+</body>
+</html>
